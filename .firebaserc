@@ -1,0 +1,13 @@
+{
+  "projects": {
+    "staging-spacecraf": "spacecraft-system"
+  },
+  "targets": {
+    "spacecraft-system": {
+      "hosting": {
+        "tickets": ["spacecraft-tickets"]
+      }
+    }
+  },
+  "etags": {}
+}
