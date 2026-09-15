@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import ticketsApi from '../api/ticketsApi'
 import { windowDays, formatDayLabel } from '../utils/dates'
+import { ticketPriceFor, formatMoney } from '../constants/pricing'
 
 const DAYS = windowDays()
 
@@ -13,8 +14,12 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
   const [quantity, setQuantity] = useState(1)
   const [buyerName, setBuyerName] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
+  const [cardId, setCardId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  const unitPrice = ticketPriceFor(venue)
+  const total = unitPrice * quantity
 
   useEffect(() => {
     let cancelled = false
@@ -46,6 +51,10 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
       setSubmitError('Elige un horario disponible.')
       return
     }
+    if (!cardId.trim()) {
+      setSubmitError('Ingresa el número de tarjeta BankIn para pagar la entrada.')
+      return
+    }
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -56,6 +65,7 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
         quantity,
         buyerName,
         buyerEmail,
+        cardId: cardId.trim(),
       })
       onConfirm({ type: 'museum', ticket, venue })
     } catch (err) {
@@ -145,12 +155,30 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
               required
             />
           </label>
+          <label className="field" style={{ gridColumn: '1 / -1' }}>
+            <span>Número de tarjeta BankIn</span>
+            <input
+              value={cardId}
+              onChange={(e) => setCardId(e.target.value)}
+              placeholder="Ej. 1234567890123456"
+              inputMode="numeric"
+              required
+            />
+          </label>
 
-          {submitError && <p className="field-error" style={{ gridColumn: '1 / -1' }}>{submitError}</p>}
+          <p className="venue-card-meta" style={{ gridColumn: '1 / -1' }}>
+            Total a cobrar con BankIn: <strong>{formatMoney(total)}</strong> ({formatMoney(unitPrice)} × {quantity})
+          </p>
+
+          {submitError && (
+            <div className="inline-error" role="alert" style={{ gridColumn: '1 / -1' }}>
+              ⚠ {submitError}
+            </div>
+          )}
 
           <div className="modal-actions" style={{ gridColumn: '1 / -1' }}>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Reservando…' : `Reservar ${quantity} cupo${quantity === 1 ? '' : 's'}`}
+              {submitting ? 'Cobrando…' : `Pagar y reservar ${quantity} cupo${quantity === 1 ? '' : 's'}`}
             </button>
           </div>
         </form>

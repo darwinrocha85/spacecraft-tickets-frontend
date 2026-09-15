@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import ticketsApi from '../api/ticketsApi'
 import SeatMap from './SeatMap'
 import { isoRange, formatDayLabel } from '../utils/dates'
+import { ticketPriceFor, formatMoney } from '../constants/pricing'
 
 export default function TheaterBooking({ venue, event, onBack, onConfirm }) {
   const functionDates = isoRange(event.startDate, event.endDate)
@@ -12,8 +13,12 @@ export default function TheaterBooking({ venue, event, onBack, onConfirm }) {
   const [selectedSeats, setSelectedSeats] = useState([])
   const [buyerName, setBuyerName] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
+  const [cardId, setCardId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  const unitPrice = ticketPriceFor(venue)
+  const total = unitPrice * selectedSeats.length
 
   useEffect(() => {
     let cancelled = false
@@ -48,6 +53,10 @@ export default function TheaterBooking({ venue, event, onBack, onConfirm }) {
       setSubmitError('Elige al menos un asiento.')
       return
     }
+    if (!cardId.trim()) {
+      setSubmitError('Ingresa el número de tarjeta BankIn para pagar la entrada.')
+      return
+    }
     setSubmitting(true)
     setSubmitError('')
     try {
@@ -57,6 +66,7 @@ export default function TheaterBooking({ venue, event, onBack, onConfirm }) {
         seats: selectedSeats,
         buyerName,
         buyerEmail,
+        cardId: cardId.trim(),
       })
       onConfirm({ type: 'theater', ticket, venue, event })
     } catch (err) {
@@ -116,12 +126,30 @@ export default function TheaterBooking({ venue, event, onBack, onConfirm }) {
               <span>Email del comprador</span>
               <input type="email" value={buyerEmail} onChange={(e) => setBuyerEmail(e.target.value)} required />
             </label>
+            <label className="field" style={{ gridColumn: '1 / -1' }}>
+              <span>Número de tarjeta BankIn</span>
+              <input
+                value={cardId}
+                onChange={(e) => setCardId(e.target.value)}
+                placeholder="Ej. 1234567890123456"
+                inputMode="numeric"
+                required
+              />
+            </label>
 
-            {submitError && <p className="field-error" style={{ gridColumn: '1 / -1' }}>{submitError}</p>}
+            <p className="venue-card-meta" style={{ gridColumn: '1 / -1' }}>
+              Total a cobrar con BankIn: <strong>{formatMoney(total)}</strong> ({formatMoney(unitPrice)} × {selectedSeats.length || 0})
+            </p>
+
+            {submitError && (
+              <div className="inline-error" role="alert" style={{ gridColumn: '1 / -1' }}>
+                ⚠ {submitError}
+              </div>
+            )}
 
             <div className="modal-actions" style={{ gridColumn: '1 / -1' }}>
               <button type="submit" className="btn btn-primary" disabled={submitting || selectedSeats.length === 0}>
-                {submitting ? 'Comprando…' : `Comprar ${selectedSeats.length || ''} entrada${selectedSeats.length === 1 ? '' : 's'}`}
+                {submitting ? 'Cobrando…' : `Pagar ${selectedSeats.length || ''} entrada${selectedSeats.length === 1 ? '' : 's'}`}
               </button>
             </div>
           </form>

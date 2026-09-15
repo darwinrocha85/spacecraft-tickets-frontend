@@ -1,8 +1,13 @@
 import axios from 'axios'
 
-// Base URL configurable por variable de entorno (ver .env.example).
-// Por defecto apunta al backend spacecraftSystem corriendo local.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+// Base URL configurable por variable de entorno (ver .env.example), pero el propio
+// modo de Vite ya distingue el entorno sin depender de que exista un .env: en `npm run dev`
+// (import.meta.env.DEV) usa el backend local, en `npm run build` (producción) usa Render.
+// Un VITE_API_URL explícito (.env.local, variable de entorno en CI, etc.) siempre gana.
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? 'http://localhost:8080/api'
+  : 'https://spacecraftsystem.onrender.com/api'
+const API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL
 
 const client = axios.create({
   baseURL: API_URL,
@@ -19,7 +24,9 @@ function toFriendlyError(error) {
     return err
   }
   if (error.request) {
-    return new Error('No se pudo contactar al backend. ¿Está corriendo en ' + API_URL + '?')
+    return new Error(
+      'No se pudo contactar al backend. ¿Está corriendo en ' + API_URL + '?'
+    )
   }
   return error
 }

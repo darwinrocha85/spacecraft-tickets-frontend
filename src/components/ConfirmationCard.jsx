@@ -1,3 +1,5 @@
+import { formatMoney } from '../constants/pricing'
+
 export default function ConfirmationCard({ result, onBackToCatalog, onGoToMyTickets }) {
   const { type, ticket, venue, event } = result
 
@@ -22,10 +24,15 @@ export default function ConfirmationCard({ result, onBackToCatalog, onGoToMyTick
           </>
         )}
         <p><strong>Comprador:</strong> {ticket.buyerName} ({ticket.buyerEmail})</p>
+        <p>
+          <strong>Cobrado con BankIn:</strong> {formatMoney(ticket.amountCharged)}
+          {ticket.bankinTransactionId ? ` · transacción #${ticket.bankinTransactionId}` : ''}
+        </p>
       </div>
 
       <p className="venue-card-meta">
-        Te enviamos un email de confirmación (demo — no tiene validez legal ni implica ningún cobro real).
+        Te enviamos un email de confirmación. El cobro fue procesado por BankIn (entorno demo) — esta
+        entrada sigue sin tener validez legal, pero el pago sí se registró de verdad en ese entorno de pruebas.
       </p>
 
       <div className="modal-actions confirmation-actions">

@@ -5,7 +5,9 @@
   "targets": {
     "spacecraft-system": {
       "hosting": {
-        "tickets": ["spacecraft-tickets"]
+        "tickets": [
+          "spacecraft-tickets"
+        ]
       }
     }
   },
