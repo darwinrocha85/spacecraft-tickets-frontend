@@ -44,6 +44,64 @@ export default function App() {
     }
   }, [activeTab])
 
+  // Deep-link desde el landing de marketing (spacecraft-events-landing): al hacer click
+  // en un museo o una funcion de teatro, llega ?type=museum&venue=<id> o
+  // ?type=theater&venue=<id>&event=<id> y saltamos directo al flujo de compra de ese
+  // recinto/evento en vez del catalogo general. Tambien soporta ?tab=my-tickets para el
+  // link de "¿Ya compraste?" del landing.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const type = params.get('type')
+    const venueId = params.get('venue')
+    const eventId = params.get('event')
+    const tab = params.get('tab')
+
+    if (!type && tab === 'my-tickets') {
+      setActiveTab('my-tickets')
+      window.history.replaceState(null, '', window.location.pathname)
+      return
+    }
+
+    if (!type || !venueId) return
+
+    let cancelled = false
+
+    if (type === 'museum') {
+      ticketsApi
+        .getSpacecraft(venueId)
+        .then((venue) => {
+          if (cancelled) return
+          setActiveTab('museum')
+          setSelectedVenue(venue)
+          setStep('booking')
+          window.history.replaceState(null, '', window.location.pathname)
+        })
+        .catch(() => {
+          if (!cancelled) setToast('No se pudo abrir ese museo desde el enlace, mostrando el catálogo.')
+        })
+    } else if (type === 'theater' && eventId) {
+      ticketsApi
+        .getTheaterEvent(eventId)
+        .then(async (event) => {
+          const venue = await ticketsApi.getSpacecraft(event.spacecraftId)
+          if (cancelled) return
+          setActiveTab('theater')
+          setSelectedVenue(venue)
+          setSelectedEvent(event)
+          setStep('booking')
+          window.history.replaceState(null, '', window.location.pathname)
+        })
+        .catch(() => {
+          if (!cancelled) setToast('No se pudo abrir esa función desde el enlace, mostrando el catálogo.')
+        })
+    }
+
+    return () => {
+      cancelled = true
+    }
+    // Solo al montar: el deep-link se resuelve una vez, con los query params iniciales.
+  }, [])
+
   function goToTab(tab) {
     setActiveTab(tab)
     setStep('list')
