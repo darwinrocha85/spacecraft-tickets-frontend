@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ticketsApi from '../api/ticketsApi'
 import { windowDays, formatDayLabel } from '../utils/dates'
-import { ticketPriceFor, formatMoney } from '../constants/pricing'
+import { ticketPriceFor, formatMoney, formatEur, BASE_CURRENCY, PAY_CURRENCIES } from '../constants/pricing'
+import RemainingPayment from './RemainingPayment'
+import usePaymentQuote from '../hooks/usePaymentQuote'
 
 const DAYS = windowDays()
 
@@ -15,11 +17,18 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
   const [buyerName, setBuyerName] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
   const [cardId, setCardId] = useState('')
+  const [currency, setCurrency] = useState('EUR')
+  const [payAmount, setPayAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [reservedTicket, setReservedTicket] = useState(null)
+  // Guard síncrono anti-doble-click: setSubmitting es async y dos clicks
+  // rápidos entrarían dos veces (doble cobro). El ref bloquea en el acto.
+  const submittingRef = useRef(false)
 
   const unitPrice = ticketPriceFor(venue)
   const total = unitPrice * quantity
+  const quote = usePaymentQuote(total, currency)
 
   useEffect(() => {
     let cancelled = false
@@ -47,6 +56,7 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (submittingRef.current) return
     if (!selectedTime) {
       setSubmitError('Elige un horario disponible.')
       return
@@ -55,10 +65,11 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
       setSubmitError('Ingresa el número de tarjeta BankIn para pagar la entrada.')
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     setSubmitError('')
     try {
-      const ticket = await ticketsApi.purchaseMuseumTicket({
+      const payload = {
         spacecraftId: venue.id,
         visitDate: selectedDate,
         visitTime: selectedTime,
@@ -66,11 +77,23 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
         buyerName,
         buyerEmail,
         cardId: cardId.trim(),
-      })
-      onConfirm({ type: 'museum', ticket, venue })
+        paymentCurrency: currency,
+        idempotencyKey: `${buyerEmail.trim()}-${Date.now()}`,
+      }
+      const firstPay = Number(payAmount)
+      if (payAmount !== '' && Number.isFinite(firstPay) && firstPay > 0) {
+        payload.payAmount = firstPay
+      }
+      const ticket = await ticketsApi.purchaseMuseumTicket(payload)
+      if (ticket.status === 'RESERVED') {
+        setReservedTicket(ticket)
+      } else {
+        onConfirm({ type: 'museum', ticket, venue })
+      }
     } catch (err) {
       setSubmitError(err.message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -165,9 +188,33 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
               required
             />
           </label>
+          <label className="field">
+            <span>Moneda del pago</span>
+            <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
+              {PAY_CURRENCIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Primer pago (vacío = total)</span>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
+              placeholder={`${total.toFixed(2)}`}
+            />
+          </label>
 
           <p className="venue-card-meta" style={{ gridColumn: '1 / -1' }}>
-            Total a cobrar con BankIn: <strong>{formatMoney(total)}</strong> ({formatMoney(unitPrice)} × {quantity})
+            Precio base: <strong>{formatEur(total)} {BASE_CURRENCY}</strong> ({formatMoney(unitPrice)} × {quantity}).
+            Puedes pagar en partes y en varias monedas: la entrada se confirma al cubrir el total.
+            {quote && (
+              <> Faltan ≈ <strong>{Number(quote.quoted_amount).toFixed(2)} {quote.currency}</strong> para
+              completar el pago (tasa BankIn: 1 EUR = {Number(quote.rate).toFixed(4)} {quote.currency}).</>
+            )}
           </p>
 
           {submitError && (
@@ -180,8 +227,25 @@ export default function MuseumBooking({ venue, onBack, onConfirm }) {
             <button type="submit" className="btn btn-primary" disabled={submitting}>
               {submitting ? 'Cobrando…' : `Pagar y reservar ${quantity} cupo${quantity === 1 ? '' : 's'}`}
             </button>
+            <button type="button" className="btn btn-ghost" disabled title="Integración con Adyen en proceso">
+              Pagar con Adyen (próximamente)
+            </button>
           </div>
         </form>
+      )}
+
+      {reservedTicket && (
+        <RemainingPayment
+          kind="museum"
+          ticket={reservedTicket}
+          onPaid={(updated) => {
+            if (updated.status === 'ACTIVE') {
+              onConfirm({ type: 'museum', ticket: updated, venue })
+            } else {
+              setReservedTicket(updated)
+            }
+          }}
+        />
       )}
     </div>
   )

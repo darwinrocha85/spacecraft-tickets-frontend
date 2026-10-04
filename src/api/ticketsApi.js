@@ -155,6 +155,37 @@ export const ticketsApi = {
       throw toFriendlyError(error)
     }
   },
+
+  // Fase 8 (multitramo): abonar el resto de una reserva parcial (status RESERVED).
+  // El ticket solo pasa a ACTIVE cuando la orden llega a PAID en BankIn.
+  async payRemainingMuseumTicket(id, payload) {    try {
+      const { data } = await client.patch(`/museum-tickets/${id}/pay`, payload)
+      return data
+    } catch (error) {
+      throw toFriendlyError(error)
+    }
+  },
+
+  async payRemainingTheaterTicket(id, payload) {
+    try {
+      const { data } = await client.patch(`/theater-tickets/${id}/pay`, payload)
+      return data
+    } catch (error) {
+      throw toFriendlyError(error)
+    }
+  },
+
+  // Fase 8: cotiza un monto en EUR a otra moneda con la tasa vigente de BankIn
+  // (vía backend, nunca directo a BankIn). Solo lectura, para mostrar el
+  // "faltan ≈ X" en la moneda elegida. Si no hay tasa, lanza (el hook oculta).
+  async getPaymentQuote(amountEur, currency) {
+    try {
+      const { data } = await client.get('/payment-quote', { params: { amount: amountEur, currency } })
+      return data
+    } catch (error) {
+      throw toFriendlyError(error)
+    }
+  },
 }
 
 export default ticketsApi

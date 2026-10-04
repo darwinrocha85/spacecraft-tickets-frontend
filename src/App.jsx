@@ -118,7 +118,7 @@ export default function App() {
   function handleConfirm(result) {
     setConfirmationResult(result)
     setStep('confirmation')
-    setToast('¡Compra confirmada!')
+    setToast(result.ticket.status === 'RESERVED' ? 'Reserva parcial registrada.' : '¡Compra confirmada!')
   }
 
   return (

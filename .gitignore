@@ -5,3 +5,5 @@ dist-ssr
 .env
 .firebase
 npm-debug.log*
+
+.engram/

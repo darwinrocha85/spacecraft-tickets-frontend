@@ -416,7 +416,8 @@ body {
   color: var(--text-muted);
 }
 
-.field input {
+.field input,
+.field select {
   font-family: var(--font-body);
   font-size: 0.92rem;
   color: var(--text-primary);
@@ -426,10 +427,31 @@ body {
   padding: 9px 12px;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   outline: none;
   border-color: var(--accent-cyan);
   box-shadow: 0 0 0 3px rgba(125, 249, 255, 0.15);
+}
+
+.field select {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) center,
+    calc(100% - 13px) center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .stepper {

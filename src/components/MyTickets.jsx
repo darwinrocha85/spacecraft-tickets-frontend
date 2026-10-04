@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import ticketsApi from '../api/ticketsApi'
 import { windowDays, formatDayLabel } from '../utils/dates'
+import { formatEur } from '../constants/pricing'
+import RemainingPayment from './RemainingPayment'
 
 const DAYS = windowDays()
 
@@ -13,6 +15,8 @@ export default function MyTickets() {
 
   // estado del panel de reprogramar (solo museo)
   const [rescheduling, setRescheduling] = useState(false)
+  // Guard síncrono anti-doble-click en "Cancelar entrada".
+  const cancellingRef = useRef(false)
   const [newDate, setNewDate] = useState(DAYS[0])
   const [newAvailability, setNewAvailability] = useState([])
   const [loadingNewAvailability, setLoadingNewAvailability] = useState(false)
@@ -47,8 +51,15 @@ export default function MyTickets() {
     }
   }
 
+  function statusLabel(status) {
+    if (status === 'ACTIVE') return 'Activa'
+    if (status === 'RESERVED') return 'Pago parcial'
+    return 'Cancelada'
+  }
+
   async function handleCancel() {
-    if (!result) return
+    if (!result || cancellingRef.current) return
+    cancellingRef.current = true
     setLoading(true)
     setError('')
     try {
@@ -64,6 +75,7 @@ export default function MyTickets() {
     } catch (err) {
       setError(err.message)
     } finally {
+      cancellingRef.current = false
       setLoading(false)
     }
   }
@@ -127,7 +139,7 @@ export default function MyTickets() {
       {result && (
         <div className="ticket-detail-card">
           <span className={`franchise-badge ${result.ticket.status === 'ACTIVE' ? '' : 'ticket-cancelled-badge'}`}>
-            {result.ticket.status === 'ACTIVE' ? 'Activa' : 'Cancelada'}
+            {statusLabel(result.ticket.status)}
           </span>
           <p className="confirmation-code">{result.ticket.confirmationCode}</p>
           <p><strong>Nave:</strong> {result.venue.name}</p>
@@ -145,13 +157,19 @@ export default function MyTickets() {
             </>
           )}
           <p><strong>Comprador:</strong> {result.ticket.buyerName} ({result.ticket.buyerEmail})</p>
+          {result.ticket.totalEur != null && (
+            <p>
+              <strong>Pago:</strong> {formatEur(result.ticket.paidEur)} de {formatEur(result.ticket.totalEur)}
+              {result.ticket.status === 'RESERVED' ? ' (reserva parcial, aún no confirmada)' : ''}
+            </p>
+          )}
 
-          {result.ticket.status === 'ACTIVE' && (
+          {(result.ticket.status === 'ACTIVE' || result.ticket.status === 'RESERVED') && (
             <div className="modal-actions">
               <button className="btn btn-danger" onClick={handleCancel} disabled={loading}>
                 Cancelar entrada
               </button>
-              {result.kind === 'museum' && (
+              {result.kind === 'museum' && result.ticket.status === 'ACTIVE' && (
                 <button className="btn btn-ghost" onClick={openReschedule} disabled={loading}>
                   Reprogramar
                 </button>
@@ -159,6 +177,16 @@ export default function MyTickets() {
             </div>
           )}
 
+          {result.ticket.status === 'RESERVED' && (
+            <RemainingPayment
+              kind={result.kind}
+              ticket={result.ticket}
+              onPaid={(updated) => {
+                setResult({ ...result, ticket: updated })
+                if (updated.status === 'ACTIVE') setActionMessage('Pago completado. Entrada confirmada.')
+              }}
+            />
+          )}
           {rescheduling && (
             <div className="reschedule-panel">
               <p className="schedule-title">Nuevo día</p>
